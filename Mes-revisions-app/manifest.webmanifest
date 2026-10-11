@@ -1,0 +1,17 @@
+{
+  "name": "Mes révisions",
+  "short_name": "Révisions",
+  "description": "Quiz, cartes, synthèses, schémas et examens blancs pour réviser.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#12263a",
+  "theme_color": "#12263a",
+  "lang": "fr",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
