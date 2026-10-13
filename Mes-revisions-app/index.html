@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="app-version" content="3.1.0">
+<meta name="app-version" content="3.2.0">
 <title>Mes révisions</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
@@ -468,6 +468,14 @@ main.quiz.wide{max-width:980px}
 .leg-item b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:12px;margin-right:8px}
 .leg-notes{margin-top:14px}
 .leg-notes p{margin:6px 0;font-size:14px}
+.sband{position:absolute;left:0;right:0;background:rgba(214,64,52,.2);border-top:2px dashed rgba(214,64,52,.95);border-bottom:2px dashed rgba(214,64,52,.95);pointer-events:none;display:grid;place-items:center;box-sizing:border-box}
+.sband b{background:var(--bad);color:#fff;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;font-size:17px;line-height:1;box-shadow:0 0 0 3px rgba(255,255,255,.95)}
+.sband.prev{background:rgba(15,107,88,.14);border-color:rgba(15,107,88,.8)}
+.sline{position:absolute;left:0;right:0;border-top:2px dashed var(--accent);pointer-events:none}
+.leg-band{fill-opacity:.14;stroke-opacity:.9;stroke-width:1.5;stroke-dasharray:6 4}
+.leg-brace{fill:none;stroke-width:2.2}
+.leg-bandn{position:absolute;left:0;right:0;border-top:2px dashed;border-bottom:2px dashed;box-sizing:border-box;pointer-events:none}
+.leg-item small{color:var(--muted)}
 /* ---- impression (export PDF des synthèses) ---- */
 @media print{
   body *{visibility:hidden}
@@ -535,7 +543,7 @@ main.quiz.wide{max-width:980px}
 'use strict';
 
 /* ---------- Utilitaires ---------- */
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '3.2.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -2032,7 +2040,7 @@ function normSchema(o, course){
   const labels = src.map((l,i)=>{
     l = l || {}; const label = clip(l.label || l.nom || l.text, 120), mk = cleanMark(l);
     if(!label || !mk) throw new Error('Légende '+(i+1)+' : il faut un "label" et des positions "x" et "y" entre 0 et 1.');
-    const out = { label, x:mk.x, y:mk.y }; const note = clip(l.note || '', 300); if(note) out.note = note; return out;
+    const out = { label, x:mk.x, y:mk.y }; const y2 = Number(l.y2); if(l.y2 != null && y2 > mk.y && y2 <= 1) out.y2 = Math.round(y2*1000)/1000; const note = clip(l.note || '', 300); if(note) out.note = note; return out;
   });
   if(!labels.length) throw new Error('Ce schéma ne contient aucune légende.');
   return { type:'schema', title: clip(o.title||o.titre||'Schéma sans titre',120), course: clip(course||o.course||o.cours||'',80), payload:{ image:img, labels }, meta:{ count:labels.length } };
@@ -2062,7 +2070,7 @@ function renderSchema(){
       h += '<div class="qstart">'+schLegendHTML(it, z)+'<div class="row" style="justify-content:flex-start;margin-top:14px"><button class="btn primary" data-act="sch-tab" data-tab="train">S\'entraîner sur ce schéma</button></div></div>';
     }else{ h += '<div class="qstart"><div class="stats"><div class="stat"><b>'+labels.length+'</b>légende'+(labels.length>1?'s':'')+'</div>'+
       (st.attempts ? '<div class="stat"><b>'+st.best+' %</b>meilleur score</div><div class="stat"><b>'+st.attempts+'</b>essai'+(st.attempts>1?'s':'')+'</div>' : '')+'</div>'+
-      schemaImg(it, labels.map(l=>'<span class="smark" style="left:'+(l.x*100)+'%;top:'+(l.y*100)+'%"></span>').join(''))+
+      schemaImg(it, schMarksHTML(labels, -1))+
       '<p class="hint">Un repère rouge « ? » s\'allume sur le schéma : trouve le nom de la structure.</p>'+
       '<div class="checks"><label><input type="checkbox" id="schTyped"'+(z.typed?' checked':'')+'> Écrire la réponse (sinon : choix multiples)</label></div>'+
       '<div class="row" style="justify-content:flex-start"><button class="btn primary" data-act="sch-start">Commencer</button></div></div>';
@@ -2070,7 +2078,7 @@ function renderSchema(){
   }else if(z.phase==='play'){
     const idx = z.order[z.pos], l = labels[idx], total = z.order.length;
     h += '<div class="progress" aria-hidden="true"><div style="width:'+((z.pos + (z.answered?1:0))/total*100)+'%"></div></div><p class="qcount">Légende '+(z.pos+1)+' sur '+total+'</p>'+
-      schemaImg(it, labels.map((x,i)=>'<span class="smark'+(i===idx?' on':'')+'" style="left:'+(x.x*100)+'%;top:'+(x.y*100)+'%">'+(i===idx?'?':'')+'</span>').join(''))+
+      schemaImg(it, schMarksHTML(labels, idx))+
       '<h2 class="qtext">Comment s\'appelle la structure repérée en rouge ?</h2>';
     if(!z.answered){
       if(z.typed) h += '<input class="txt" id="schAns" placeholder="Ta réponse" autocomplete="off" autocapitalize="off" spellcheck="false"><div class="row" style="margin-top:12px;justify-content:flex-start"><button class="btn primary" data-act="sch-check">Valider</button><button class="btn" data-act="sch-skip">Je ne sais pas</button></div>';
@@ -2248,7 +2256,8 @@ function renderSchemaEdit(){
     '<label class="lbl" for="schTitle">Titre</label><input class="txt" id="schTitle" maxlength="120" value="'+esc(e.title)+'">'+
     '<label class="lbl" for="schCourse">Dossier</label><input class="txt" id="schCourse" list="folderList" maxlength="80" value="'+esc(e.course)+'" placeholder="Sans dossier" autocomplete="off"><datalist id="folderList">'+opts+'</datalist>'+
     '<p class="hint" style="margin-top:14px"><b>Touche l\'image</b> à l\'endroit d\'une structure pour poser un repère numéroté, puis écris son nom dans la liste.</p>'+
-    schemaImg(fake, e.labels.map((l,i)=>'<span class="smark num" style="left:'+(l.x*100)+'%;top:'+(l.y*100)+'%">'+(i+1)+'</span>').join('')+(e.pending!=null && e.labels[e.pending] ? schPopHTML(e.labels[e.pending], e.pending) : ''), ' data-sch="1"')+
+    '<div class="row" style="justify-content:flex-start;margin:8px 0"><button class="btn sm'+(!e.zoneMode?' primary':'')+'" data-act="sch-mode" data-m="point">Repère (point)</button><button class="btn sm'+(e.zoneMode?' primary':'')+'" data-act="sch-mode" data-m="zone">Zone entre deux limites</button></div>'+(e.zoneMode ? '<p class="hint">Touche une première limite, puis la seconde : une zone (comme entre deux pointillés) est créée.</p>' : '')+
+    schemaImg(fake, e.labels.map((l,i)=>(typeof l.y2==='number' ? '<span class="sband prev" style="top:'+(l.y*100)+'%;height:'+((l.y2-l.y)*100)+'%"></span>' : '')+'<span class="smark num" style="left:'+(l.x*100)+'%;top:'+(typeof l.y2==='number' ? ((l.y+l.y2)/2*100) : (l.y*100))+'%">'+(i+1)+'</span>').join('')+(e.zoneStart ? '<span class="sline" style="top:'+(e.zoneStart.y*100)+'%"></span>' : '')+(e.pending!=null && e.labels[e.pending] ? schPopHTML(e.labels[e.pending], e.pending) : ''), ' data-sch="1"')+
     (e.labels.length ? e.labels.map((l,i)=>'<div class="edopt"><span class="smark-n">'+(i+1)+'</span><input class="txt sch-lab" data-i="'+i+'" value="'+esc(l.label)+'" placeholder="Nom de la structure" maxlength="120"><button class="icon-btn" data-act="sch-del" data-i="'+i+'" aria-label="Supprimer ce repère">'+ICON.trash+'</button></div>').join('') : '<p class="none small">Aucun repère pour l\'instant.</p>')+
     '<div id="edMsg"></div><div class="actions"><button class="btn ghost" data-act="sch-cancel">'+(e.queue?'Arrêter':'Annuler')+'</button>'+(e.queue ? '<button class="btn" data-act="sch-qskip">Passer ce schéma</button>' : '')+'<button class="btn primary" data-act="sch-save">'+(e.queue && e.queue.pos < e.queue.total-1 ? 'Enregistrer et suivant' : 'Enregistrer')+'</button></div></main>';
 }
@@ -2259,7 +2268,7 @@ function schCommitPending(){
 }
 function schPopHTML(l, i){
   const tr = l.x > 0.7 ? '-100%' : l.x < 0.3 ? '0' : '-50%';
-  return '<input class="sch-pop" id="schPop" data-i="'+i+'" style="left:'+(l.x*100)+'%;top:'+(l.y*100)+'%;transform:translate('+tr+',20px)" placeholder="Nom puis Entrée" maxlength="120" autocomplete="off" value="'+esc(l.label)+'">';
+  return '<input class="sch-pop" id="schPop" data-i="'+i+'" style="left:'+(l.x*100)+'%;top:'+((typeof l.y2==='number' ? (l.y+l.y2)/2 : l.y)*100)+'%;transform:translate('+tr+',20px)" placeholder="Nom puis Entrée" maxlength="120" autocomplete="off" value="'+esc(l.label)+'">';
 }
 function schPlace(wrap, ev){
   const e = state.sedit; if(!e) return;
@@ -2269,6 +2278,15 @@ function schPlace(wrap, ev){
   schCommitPending();
   if(e.labels.length >= 60){ toast('60 repères au maximum.'); renderSchemaEdit(); return; }
   const t = $('#schTitle'), c = $('#schCourse'); if(t) e.title = t.value; if(c) e.course = c.value;
+  if(e.zoneMode){
+    if(!e.zoneStart){ e.zoneStart = { x, y }; toast('Touche maintenant l\'autre limite de la zone.'); renderSchemaEdit(); return; }
+    const y1 = Math.min(y, e.zoneStart.y), y2 = Math.max(y, e.zoneStart.y), zx = e.zoneStart.x; e.zoneStart = null;
+    if(y2 - y1 < 0.03){ toast('Zone trop petite : recommence.'); renderSchemaEdit(); return; }
+    e.labels.push({ label:'', x:Math.round(zx*1000)/1000, y:Math.round(y1*1000)/1000, y2:Math.round(y2*1000)/1000 });
+    e.pending = e.labels.length - 1; renderSchemaEdit();
+    setTimeout(()=>{ const f = $('#schPop'); if(f) f.focus({ preventScroll:true }); }, 30);
+    return;
+  }
   e.labels.push({ label:'', x:Math.round(x*1000)/1000, y:Math.round(y*1000)/1000 });
   e.pending = e.labels.length - 1;
   renderSchemaEdit();
@@ -2283,7 +2301,7 @@ async function schSave(){
   if(!e.title){ fail('Donne un titre au schéma.'); return; }
   const labels = e.labels.filter(l=>String(l.label).trim());
   if(!labels.length){ fail('Pose au moins un repère et écris son nom.'); return; }
-  const payload = { image:e.image, labels:labels.map(l=>({ label:clip(l.label,120), x:l.x, y:l.y })) };
+  const payload = { image:e.image, labels:labels.map(l=>{ const o = { label:clip(l.label,120), x:l.x, y:l.y }; if(typeof l.y2==='number') o.y2 = l.y2; if(l.note) o.note = l.note; return o; }) };
   try{
     if(e.id){ await updateItem(e.id, it=>{ it.title = clip(e.title,120); it.course = clip(e.course,80); it.payload = payload; it.meta = { count:payload.labels.length }; return it; }); }
     else{ await addNewItem({ type:'schema', title:clip(e.title,120), course:clip(e.course,80), payload, meta:{ count:payload.labels.length } }); }
@@ -2597,31 +2615,53 @@ function schLegendHTML(it, z){
     '<ol class="leg-list" id="legList"></ol>'+
     (notes.length ? '<details class="leg-notes" open><summary>À retenir</summary>'+notes.map(l=>'<p><b>'+esc(l.label)+'</b> : '+esc(l.note)+'</p>').join('')+'</details>' : '');
 }
+function schMarksHTML(labels, idx){
+  return labels.map((l,i)=>{
+    if(typeof l.y2 === 'number'){
+      if(i !== idx) return '';
+      return '<span class="sband on" style="top:'+(l.y*100)+'%;height:'+((l.y2-l.y)*100)+'%"><b>?</b></span>';
+    }
+    return '<span class="smark'+(i===idx?' on':'')+'" style="left:'+(l.x*100)+'%;top:'+(l.y*100)+'%">'+(i===idx?'?':'')+'</span>';
+  }).join('');
+}
 function schLegendLayout(){
   const z = state.schema; if(!z || z.phase!=='start' || z.tab!=='view') return;
   const wrap = $('#legWrap'), cont = $('#legCont'); if(!wrap || !cont) return;
   const img = $('img', cont); if(!img) return;
+  const BAND = ['#3b82c4','#d9822b','#3f9b6d','#9b59b6','#c4527a'];
   const draw = ()=>{
     if(!document.body.contains(cont)) return;
     const labels = z.item.payload.labels, Wc = wrap.clientWidth, nw = img.naturalWidth || 1, nh = img.naturalHeight || 1;
-    $$('.leg-lab,.leg-pin,svg.leg-svg', cont).forEach(e=>e.remove());
+    const isZ = l => typeof l.y2 === 'number';
+    $$('.leg-lab,.leg-pin,.leg-bandn,svg.leg-svg', cont).forEach(e=>e.remove());
     const list = $('#legList'); if(list) list.innerHTML = '';
     const nameOf = i => (z.hide && !z.rev[i]) ? '•••' : labels[i].label;
+    let zi = 0; const colorOf = labels.map(l=> isZ(l) ? BAND[(zi++) % BAND.length] : null);
     if(Wc < 560){
       img.style.cssText = 'position:static;width:100%;height:auto;display:block';
       cont.style.cssText = 'position:relative;width:100%';
-      labels.forEach((l,i)=>{ const p = document.createElement('span'); p.className = 'leg-pin'; p.style.left = (l.x*100)+'%'; p.style.top = (l.y*100)+'%'; p.textContent = String(i+1); cont.appendChild(p); });
-      if(list) list.innerHTML = labels.map((l,i)=>'<li><button class="leg-item" data-act="leg-rev" data-i="'+i+'"><b>'+(i+1)+'</b>'+esc(nameOf(i))+'</button></li>').join('');
+      labels.forEach((l,i)=>{
+        if(isZ(l)){ const b = document.createElement('span'); b.className = 'leg-bandn'; b.style.cssText = 'top:'+(l.y*100)+'%;height:'+((l.y2-l.y)*100)+'%;background:'+colorOf[i]+'22;border-color:'+colorOf[i]; cont.appendChild(b); }
+        const p = document.createElement('span'); p.className = 'leg-pin';
+        p.style.left = (l.x*100)+'%'; p.style.top = (isZ(l) ? (l.y+l.y2)/2*100 : l.y*100)+'%'; p.textContent = String(i+1);
+        if(isZ(l)) p.style.background = colorOf[i];
+        cont.appendChild(p);
+      });
+      if(list) list.innerHTML = labels.map((l,i)=>'<li><button class="leg-item" data-act="leg-rev" data-i="'+i+'"><b'+(isZ(l)?' style="background:'+colorOf[i]+'"':'')+'>'+(i+1)+'</b>'+esc(nameOf(i))+(isZ(l)?' <small>(zone)</small>':'')+'</button></li>').join('');
       return;
     }
     const colW = Math.round(Wc*0.27), imgW = Wc - 2*colW, imgH = Math.round(imgW*nh/nw);
     cont.style.cssText = 'position:relative;width:'+Wc+'px;height:'+imgH+'px;margin:0 auto';
     img.style.cssText = 'position:absolute;left:'+colW+'px;top:0;width:'+imgW+'px;height:'+imgH+'px';
-    const pts = labels.map((l,i)=>({ i, mx: colW + l.x*imgW, my: l.y*imgH, side: l.x < 0.5 ? 'L' : 'R' }));
+    const pts = labels.map((l,i)=>{ const zone = isZ(l); return { i, zone, y1:l.y*imgH, y2: zone ? l.y2*imgH : 0, my: zone ? (l.y+l.y2)/2*imgH : l.y*imgH, mx: colW + l.x*imgW, side: l.x < 0.5 ? 'L' : 'R' }; });
     const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('class','leg-svg'); svg.setAttribute('width', Wc); svg.setAttribute('height', imgH); cont.appendChild(svg);
+    pts.filter(p=>p.zone).forEach(p=>{
+      const r = document.createElementNS(NS, 'rect'); r.setAttribute('x', colW); r.setAttribute('y', p.y1); r.setAttribute('width', imgW); r.setAttribute('height', p.y2 - p.y1);
+      r.setAttribute('class','leg-band'); r.style.fill = colorOf[p.i]; r.style.stroke = colorOf[p.i]; svg.appendChild(r);
+    });
     ['L','R'].forEach(side=>{
-      const g = pts.filter(p=>p.side===side).sort((a,b)=>a.my-b.my), inner = colW - 36;
+      const g = pts.filter(p=>p.side===side).sort((a,b)=>a.my-b.my), inner = colW - 44;
       const hs = g.map(p=>{ const t = nameOf(p.i); const lines = Math.max(1, Math.ceil(t.length * 7.6 / inner)); return 30 + 16*(lines-1); });
       const need = k => (hs[k-1] + hs[k]) / 2 + 4;
       let ys = g.map(p=>p.my);
@@ -2631,13 +2671,22 @@ function schLegendLayout(){
       for(let k=ys.length-2;k>=0;k--) ys[k] = Math.min(ys[k], ys[k+1] - need(k+1));
       for(let k=0;k<ys.length;k++) ys[k] = Math.max(ys[k], k ? ys[k-1] + need(k) : hs[0]/2 + 2);
       g.forEach((p,k)=>{
-        const y = ys[k], ax = side==='L' ? colW - 8 : Wc - colW + 8;
+        const y = ys[k], ax = side==='L' ? colW - 34 : Wc - colW + 34, col = p.zone ? colorOf[p.i] : null;
         const el = document.createElement('button'); el.type = 'button';
         el.className = 'leg-lab' + (z.hide && !z.rev[p.i] ? ' hid' : ''); el.dataset.act = 'leg-rev'; el.dataset.i = p.i;
         el.textContent = nameOf(p.i); el.style.top = (y - hs[k]/2)+'px';
-        if(side==='L'){ el.style.left = '0'; el.style.width = (colW-14)+'px'; el.style.textAlign = 'right'; }
-        else{ el.style.left = (Wc-colW+14)+'px'; el.style.width = (colW-14)+'px'; el.style.textAlign = 'left'; }
+        if(col) el.style.borderColor = col;
+        if(side==='L'){ el.style.left = '0'; el.style.width = (colW-38)+'px'; el.style.textAlign = 'right'; }
+        else{ el.style.left = (Wc-colW+38)+'px'; el.style.width = (colW-38)+'px'; el.style.textAlign = 'left'; }
         cont.appendChild(el);
+        if(p.zone){
+          const dir = side==='L' ? -1 : 1, x0 = side==='L' ? colW - 6 : colW + imgW + 6, m = (p.y1 + p.y2)/2, e1 = x0 + dir*8, e2 = x0 + dir*16;
+          const path = document.createElementNS(NS, 'path');
+          path.setAttribute('d', 'M'+x0+' '+p.y1+' Q'+e1+' '+p.y1+' '+e1+' '+(p.y1+8)+' L'+e1+' '+(m-8)+' Q'+e1+' '+m+' '+e2+' '+m+' Q'+e1+' '+m+' '+e1+' '+(m+8)+' L'+e1+' '+(p.y2-8)+' Q'+e1+' '+p.y2+' '+x0+' '+p.y2);
+          path.setAttribute('class','leg-brace'); path.style.stroke = col; svg.appendChild(path);
+          const cn = document.createElementNS(NS, 'line'); cn.setAttribute('x1', e2); cn.setAttribute('y1', m); cn.setAttribute('x2', ax); cn.setAttribute('y2', y); cn.setAttribute('class','leg-line'); cn.style.stroke = col; svg.appendChild(cn);
+          return;
+        }
         const ang = Math.atan2(p.my - y, p.mx - ax), hx = p.mx - Math.cos(ang)*6, hy = p.my - Math.sin(ang)*6;
         const ln = document.createElementNS(NS, 'line'); ln.setAttribute('x1', ax); ln.setAttribute('y1', y); ln.setAttribute('x2', hx); ln.setAttribute('y2', hy); ln.setAttribute('class','leg-line'); svg.appendChild(ln);
         const a = 9, tri = document.createElementNS(NS, 'polygon');
@@ -3409,6 +3458,7 @@ document.addEventListener('click', async e=>{
     case 'acc-reset': { const mail = state.user && state.user.email; closeModal(); if(mail){ state.fbAuth.sendPasswordResetEmail(mail).then(()=>toast('E-mail envoyé : ouvre-le pour choisir un nouveau mot de passe.')).catch(e=>toast(authMsg(e))); } break; }
     case 'acc-logout': closeModal(); state.items = []; state.folders = []; state.imgCache = {}; state.fbAuth.signOut(); break;
     case 'sch-new': openSchemaNew(); break;
+    case 'sch-mode': { const e2 = state.sedit; if(e2){ const t = $('#schTitle'), c = $('#schCourse'); if(t) e2.title = t.value; if(c) e2.course = c.value; schCommitPending(); e2.zoneMode = el.dataset.m==='zone'; e2.zoneStart = null; renderSchemaEdit(); } break; }
     case 'sch-tab': { const z = state.schema; if(z){ z.tab = el.dataset.tab; renderSchema(); window.scrollTo(0,0); } break; }
     case 'leg-rev': { const z = state.schema; if(z && z.hide){ z.rev[el.dataset.i] = !z.rev[el.dataset.i]; schLegendLayout(); } break; }
     case 'sch-start': { const cb = $('#schTyped'); const z = state.schema; z.typed = !cb || cb.checked; schBegin(shuffle(z.item.payload.labels.map((l,k)=>k)), true); break; }
