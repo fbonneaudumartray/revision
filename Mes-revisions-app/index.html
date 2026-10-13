@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="app-version" content="3.3.0">
+<meta name="app-version" content="3.3.1">
 <title>Mes révisions</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
@@ -456,7 +456,7 @@ main.quiz.wide{max-width:980px}
 .checks-l{display:flex;align-items:center;gap:8px;min-height:30px}
 .checks-l input{width:18px;height:18px;accent-color:var(--accent)}
 .leg-wrap{width:100%}
-.leg-cont img{border-radius:10px;background:#fff;border:1.5px solid var(--line)}
+.leg-cont img{border-radius:10px;background:#fff;border:1.5px solid var(--line);max-width:100%;height:auto;box-sizing:border-box}
 .leg-lab{position:absolute;box-sizing:border-box;font:inherit;font-size:13px;font-weight:600;line-height:1.2;padding:5px 9px;border-radius:7px;cursor:default;background:var(--surface2);color:var(--ink);border:1.5px solid var(--line)}
 .leg-lab.hid{color:var(--muted);cursor:pointer;letter-spacing:3px;text-align:center!important}
 .leg-svg{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
@@ -551,7 +551,7 @@ main.quiz.wide{max-width:980px}
 'use strict';
 
 /* ---------- Utilitaires ---------- */
-const APP_VERSION = '3.3.0';
+const APP_VERSION = '3.3.1';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -2636,7 +2636,7 @@ function schMarksHTML(labels, idx){
 }
 function schLegendLayout(){
   const z = state.schema; if(!z || z.phase!=='start' || z.tab!=='view') return;
-  const full = !!z.full;
+  const full = !!z.big;
   const wrap = $(full ? '#legWrapF' : '#legWrap'), cont = $(full ? '#legContF' : '#legCont'); if(!wrap || !cont) return;
   const img = $('img', cont); if(!img) return;
   const fs = full ? 1.15 : 1;
@@ -2723,7 +2723,7 @@ function schLegendLayout(){
 function schLegendOpenFull(){
   const z = state.schema; if(!z) return;
   const it = z.item, data = state.imgCache[it.payload.image]; if(!data) return;
-  z.full = true;
+  z.big = true;
   const ov = document.createElement('div'); ov.id = 'legFull'; ov.className = 'leg-full';
   ov.innerHTML = '<div class="leg-full-bar"><b class="leg-full-title">'+esc(it.title)+'</b><label class="checks-l"><input type="checkbox" id="legHideF"'+(z.hide?' checked':'')+'> Masquer les noms</label><button class="btn sm" data-act="leg-close">'+ICON.close+'<span>Fermer</span></button></div>'+
     '<div class="leg-full-body"><div class="leg-wrapF" id="legWrapF"><div class="leg-cont" id="legContF"><img src="'+data+'" alt="Schéma légendé"></div><ol class="leg-list" id="legListF"></ol></div></div>';
@@ -2731,7 +2731,7 @@ function schLegendOpenFull(){
   schLegendLayout();
 }
 function schLegendCloseFull(){
-  const z = state.schema; if(z) z.full = false;
+  const z = state.schema; if(z) z.big = false;
   const ov = document.getElementById('legFull'); if(ov) ov.remove();
   document.body.style.overflow = '';
   if(z && z.phase==='start' && z.tab==='view') renderSchema();
