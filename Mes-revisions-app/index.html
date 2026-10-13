@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="app-version" content="3.2.0">
+<meta name="app-version" content="3.3.0">
 <title>Mes révisions</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
@@ -476,6 +476,14 @@ main.quiz.wide{max-width:980px}
 .leg-brace{fill:none;stroke-width:2.2}
 .leg-bandn{position:absolute;left:0;right:0;border-top:2px dashed;border-bottom:2px dashed;box-sizing:border-box;pointer-events:none}
 .leg-item small{color:var(--muted)}
+.leg-tools{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.leg-full{position:fixed;inset:0;z-index:70;background:var(--bg);color:var(--ink);display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top,0px) + 8px) 12px calc(env(safe-area-inset-bottom,0px) + 8px)}
+.leg-full-bar{display:flex;align-items:center;gap:14px;justify-content:space-between;flex:none;padding:2px 0 8px;flex-wrap:wrap}
+.leg-full-title{font-family:var(--display);font-size:17px;font-weight:600}
+.leg-full-body{flex:1;min-height:0;overflow:auto}
+.leg-wrapF{width:100%}
+.leg-full .leg-lab{font-size:15px;padding:6px 10px}
+.leg-full .leg-item{font-size:16px}
 /* ---- impression (export PDF des synthèses) ---- */
 @media print{
   body *{visibility:hidden}
@@ -543,7 +551,7 @@ main.quiz.wide{max-width:980px}
 'use strict';
 
 /* ---------- Utilitaires ---------- */
-const APP_VERSION = '3.2.0';
+const APP_VERSION = '3.3.0';
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -585,6 +593,7 @@ const ICON = {
   chart: svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
   table: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16M15 4v16"/>'),
   exam: svg('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 3h6"/>'),
+  expand: svg('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'),
   user: svg('<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/>'),
   cloud: svg('<path d="M7 18a4 4 0 010-8 5.5 5.5 0 0110.6 1.2A3.4 3.4 0 0117 18H7z"/>')
 };
@@ -1079,6 +1088,7 @@ function render(){
 }
 function goLibrary(){
   if(state.pendingReload){ location.reload(); return; }
+  const fo = document.getElementById('legFull'); if(fo){ fo.remove(); document.body.style.overflow = ''; }
   if(state.cards) fcFlush(state.cards);
   stopExamTimer();
   state.view = 'library'; state.quiz = null; state.map = null; state.cards = null; state.edit = null; state.synth = null; state.pt = null; state.schema = null; state.sedit = null; state.dec = null;
@@ -2610,7 +2620,7 @@ function schLegendHTML(it, z){
   const labels = it.payload.labels, data = state.imgCache[it.payload.image];
   if(!data) return '<p class="hint">Image indisponible sur cet appareil.</p>';
   const notes = labels.filter(l=>l.note);
-  return '<div class="leg-tools"><label class="checks-l"><input type="checkbox" id="legHide"'+(z.hide?' checked':'')+'> Masquer les noms (touche un nom pour le révéler)</label></div>'+
+  return '<div class="leg-tools"><label class="checks-l"><input type="checkbox" id="legHide"'+(z.hide?' checked':'')+'> Masquer les noms (touche un nom pour le révéler)</label><button class="btn sm" data-act="leg-full">'+ICON.expand+'<span>Agrandir</span></button></div>'+
     '<div class="leg-wrap" id="legWrap"><div class="leg-cont" id="legCont"><img src="'+data+'" alt="Schéma légendé"></div></div>'+
     '<ol class="leg-list" id="legList"></ol>'+
     (notes.length ? '<details class="leg-notes" open><summary>À retenir</summary>'+notes.map(l=>'<p><b>'+esc(l.label)+'</b> : '+esc(l.note)+'</p>').join('')+'</details>' : '');
@@ -2626,15 +2636,17 @@ function schMarksHTML(labels, idx){
 }
 function schLegendLayout(){
   const z = state.schema; if(!z || z.phase!=='start' || z.tab!=='view') return;
-  const wrap = $('#legWrap'), cont = $('#legCont'); if(!wrap || !cont) return;
+  const full = !!z.full;
+  const wrap = $(full ? '#legWrapF' : '#legWrap'), cont = $(full ? '#legContF' : '#legCont'); if(!wrap || !cont) return;
   const img = $('img', cont); if(!img) return;
+  const fs = full ? 1.15 : 1;
   const BAND = ['#3b82c4','#d9822b','#3f9b6d','#9b59b6','#c4527a'];
   const draw = ()=>{
     if(!document.body.contains(cont)) return;
     const labels = z.item.payload.labels, Wc = wrap.clientWidth, nw = img.naturalWidth || 1, nh = img.naturalHeight || 1;
     const isZ = l => typeof l.y2 === 'number';
     $$('.leg-lab,.leg-pin,.leg-bandn,svg.leg-svg', cont).forEach(e=>e.remove());
-    const list = $('#legList'); if(list) list.innerHTML = '';
+    const list = $(full ? '#legListF' : '#legList'); if(list) list.innerHTML = '';
     const nameOf = i => (z.hide && !z.rev[i]) ? '•••' : labels[i].label;
     let zi = 0; const colorOf = labels.map(l=> isZ(l) ? BAND[(zi++) % BAND.length] : null);
     if(Wc < 560){
@@ -2650,7 +2662,12 @@ function schLegendLayout(){
       if(list) list.innerHTML = labels.map((l,i)=>'<li><button class="leg-item" data-act="leg-rev" data-i="'+i+'"><b'+(isZ(l)?' style="background:'+colorOf[i]+'"':'')+'>'+(i+1)+'</b>'+esc(nameOf(i))+(isZ(l)?' <small>(zone)</small>':'')+'</button></li>').join('');
       return;
     }
-    const colW = Math.round(Wc*0.27), imgW = Wc - 2*colW, imgH = Math.round(imgW*nh/nw);
+    let colW = Math.round(Wc*(full ? 0.24 : 0.27)), imgW = Wc - 2*colW, imgH = Math.round(imgW*nh/nw);
+    if(full){
+      const body = $('.leg-full-body'), Hav = (body ? body.clientHeight : window.innerHeight - 70) - 8;
+      if(imgH > Hav){ imgH = Hav; imgW = Math.round(imgH*nw/nh); colW = Math.round((Wc - imgW)/2); }
+      if(colW < 150){ colW = 150; imgW = Wc - 2*colW; imgH = Math.round(imgW*nh/nw); }
+    }
     cont.style.cssText = 'position:relative;width:'+Wc+'px;height:'+imgH+'px;margin:0 auto';
     img.style.cssText = 'position:absolute;left:'+colW+'px;top:0;width:'+imgW+'px;height:'+imgH+'px';
     const pts = labels.map((l,i)=>{ const zone = isZ(l); return { i, zone, y1:l.y*imgH, y2: zone ? l.y2*imgH : 0, my: zone ? (l.y+l.y2)/2*imgH : l.y*imgH, mx: colW + l.x*imgW, side: l.x < 0.5 ? 'L' : 'R' }; });
@@ -2662,7 +2679,7 @@ function schLegendLayout(){
     });
     ['L','R'].forEach(side=>{
       const g = pts.filter(p=>p.side===side).sort((a,b)=>a.my-b.my), inner = colW - 44;
-      const hs = g.map(p=>{ const t = nameOf(p.i); const lines = Math.max(1, Math.ceil(t.length * 7.6 / inner)); return 30 + 16*(lines-1); });
+      const hs = g.map(p=>{ const t = nameOf(p.i); const lines = Math.max(1, Math.ceil(t.length * 7.6 * fs / inner)); return Math.round((30 + 16*(lines-1)) * fs); });
       const need = k => (hs[k-1] + hs[k]) / 2 + 4;
       let ys = g.map(p=>p.my);
       for(let k=1;k<ys.length;k++) ys[k] = Math.max(ys[k], ys[k-1] + need(k));
@@ -2700,6 +2717,24 @@ function schLegendLayout(){
     state.legResize = true; let tm;
     window.addEventListener('resize', ()=>{ clearTimeout(tm); tm = setTimeout(()=>{ if(state.schema && state.schema.phase==='start' && state.schema.tab==='view') schLegendLayout(); }, 150); });
   }
+}
+
+/* ---------- Schéma en plein écran : le dessin et les noms, en grand ---------- */
+function schLegendOpenFull(){
+  const z = state.schema; if(!z) return;
+  const it = z.item, data = state.imgCache[it.payload.image]; if(!data) return;
+  z.full = true;
+  const ov = document.createElement('div'); ov.id = 'legFull'; ov.className = 'leg-full';
+  ov.innerHTML = '<div class="leg-full-bar"><b class="leg-full-title">'+esc(it.title)+'</b><label class="checks-l"><input type="checkbox" id="legHideF"'+(z.hide?' checked':'')+'> Masquer les noms</label><button class="btn sm" data-act="leg-close">'+ICON.close+'<span>Fermer</span></button></div>'+
+    '<div class="leg-full-body"><div class="leg-wrapF" id="legWrapF"><div class="leg-cont" id="legContF"><img src="'+data+'" alt="Schéma légendé"></div><ol class="leg-list" id="legListF"></ol></div></div>';
+  document.body.appendChild(ov); document.body.style.overflow = 'hidden';
+  schLegendLayout();
+}
+function schLegendCloseFull(){
+  const z = state.schema; if(z) z.full = false;
+  const ov = document.getElementById('legFull'); if(ov) ov.remove();
+  document.body.style.overflow = '';
+  if(z && z.phase==='start' && z.tab==='view') renderSchema();
 }
 
 /* ---------- Notes prises pendant une séance ---------- */
@@ -3459,6 +3494,8 @@ document.addEventListener('click', async e=>{
     case 'acc-logout': closeModal(); state.items = []; state.folders = []; state.imgCache = {}; state.fbAuth.signOut(); break;
     case 'sch-new': openSchemaNew(); break;
     case 'sch-mode': { const e2 = state.sedit; if(e2){ const t = $('#schTitle'), c = $('#schCourse'); if(t) e2.title = t.value; if(c) e2.course = c.value; schCommitPending(); e2.zoneMode = el.dataset.m==='zone'; e2.zoneStart = null; renderSchemaEdit(); } break; }
+    case 'leg-full': schLegendOpenFull(); break;
+    case 'leg-close': schLegendCloseFull(); break;
     case 'sch-tab': { const z = state.schema; if(z){ z.tab = el.dataset.tab; renderSchema(); window.scrollTo(0,0); } break; }
     case 'leg-rev': { const z = state.schema; if(z && z.hide){ z.rev[el.dataset.i] = !z.rev[el.dataset.i]; schLegendLayout(); } break; }
     case 'sch-start': { const cb = $('#schTyped'); const z = state.schema; z.typed = !cb || cb.checked; schBegin(shuffle(z.item.payload.labels.map((l,k)=>k)), true); break; }
@@ -3538,7 +3575,7 @@ document.addEventListener('change', e=>{
     printItems().filter(i=>(i.course||'')===t.dataset.printfolder).forEach(i=>{ state.print.sel[i.id] = t.checked; }); renderPrintList(); return;
   }
   if(t.dataset && t.dataset.printitem && state.print){ state.print.sel[t.dataset.printitem] = t.checked; renderPrintList(); return; }
-  if(t.id==='legHide' && state.schema){ state.schema.hide = t.checked; state.schema.rev = {}; schLegendLayout(); return; }
+  if((t.id==='legHide' || t.id==='legHideF') && state.schema){ state.schema.hide = t.checked; state.schema.rev = {}; schLegendLayout(); return; }
   if(t.id==='snFiles'){ state.snFiles = Array.from(t.files||[]); t.value = ''; const nm = $('#snName'); if(nm) nm.textContent = state.snFiles.length ? plural(state.snFiles.length,'fichier')+' : '+clip(state.snFiles.map(f=>f.name).join(', '), 60) : 'Aucun fichier choisi'; return; }
   if(t.dataset && t.dataset.pg && state.pdfPick){ state.pdfPick.sel[t.dataset.pg] = t.checked; pdfPickUpdate(); return; }
   if(t.id==='ptTest' && state.pt){ state.pt.test = t.checked; state.pt.reveal = false; renderPTable(); return; }
@@ -3575,6 +3612,7 @@ document.addEventListener('paste', e=>{
   }
 });
 document.addEventListener('keydown', e=>{
+  if(e.key==='Escape' && state.schema && state.schema.full){ schLegendCloseFull(); return; }
   if(e.key==='Escape' && $('#modalRoot').firstChild){ closeModal(); return; }
   if(e.key==='Enter' && e.target && e.target.id){
     if(e.target.id==='lgPass' || e.target.id==='lgMail'){ e.preventDefault(); loginDo('in'); return; }
